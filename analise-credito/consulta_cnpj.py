@@ -247,16 +247,6 @@ def show_pgfn(resultado: dict):
         console.print(t)
 
 
-def show_serasa():
-    console.print(Panel(
-        "[yellow]Protestos Serasa requerem credenciais da API Serasa Experian\n"
-        "(contrato comercial com o bureau).\n\n"
-        "Se o seu banco já tem acesso, posso integrar o endpoint aqui.[/yellow]",
-        title="[bold]SERASA — PROTESTOS[/bold]",
-        border_style="yellow",
-        expand=False,
-    ))
-
 
 def show_news(noticias: list, nome: str):
     console.print(Panel(f"[bold]NOTÍCIAS NEGATIVAS — {nome[:50].upper()}[/bold]", style="cyan", expand=False))
