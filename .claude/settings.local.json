@@ -15,7 +15,10 @@
       "Bash(python -m pip install -r analise-credito/requirements.txt -q)",
       "Bash(python -m streamlit run analise-credito/app.py --server.headless true)",
       "Bash(curl -s http://localhost:8502)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "WebFetch(domain:www.listadevedores.pgfn.gov.br)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")"
     ]
   },
   "hooks": {
