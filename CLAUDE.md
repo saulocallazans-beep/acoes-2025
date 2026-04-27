@@ -32,6 +32,19 @@ The entire application lives in `acoes-2025/app.py` (~79 lines). All logic — d
 
 **Key libraries:** `streamlit`, `yfinance`, `plotly`, `pandas`
 
+## GitHub Sync
+
+Repositório: https://github.com/saulocallazans-beep/acoes-2025
+
+**Automático (via Claude Code):** Um hook `PostToolUse` em `.claude/settings.local.json` faz commit e push automaticamente sempre que Claude edita um arquivo (`Write` ou `Edit`).
+
+**Manual (suas próprias alterações):** Execute `sync.bat` na raiz do projeto. Ele faz `git add -A`, commit e push em um clique.
+
+Caso o push falhe por falta de autenticação, re-autentique com:
+```
+gh auth login
+```
+
 ## Adding a New Stock
 
 Add an entry to the `ACOES` dict at the top of `app.py`:
