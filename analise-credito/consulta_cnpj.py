@@ -9,6 +9,7 @@ import re
 import asyncio
 import requests
 import feedparser
+from bs4 import BeautifulSoup
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -33,7 +34,7 @@ def fmt_brl(valor) -> str:
         return str(valor)
 
 
-# ── 1. Receita Federal via Brasil API ─────────────────────────────────────────
+# ── 1. Dados cadastrais via Brasil API ────────────────────────────────────────
 
 def fetch_cnpj(cnpj: str) -> dict:
     r = requests.get(f"https://brasilapi.com.br/api/cnpj/v1/{cnpj}", timeout=15)
@@ -41,12 +42,95 @@ def fetch_cnpj(cnpj: str) -> dict:
     return r.json()
 
 
-# ── 2. PGFN via Playwright (browser real para resolver reCAPTCHA) ─────────────
+# ── 2. Receita Federal oficial (hCaptcha — browser headed) ───────────────────
+
+async def fetch_receita_federal(cnpj: str) -> dict:
+    """
+    Abre o browser, preenche o CNPJ e aguarda o usuário resolver o hCaptcha.
+    Ao navegar para a página de resultado, extrai os dados e retorna.
+    """
+    resultado = {}
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+
+        await page.goto(
+            "https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/Cnpjreva_Solicitacao.asp",
+            wait_until="networkidle",
+            timeout=30_000,
+        )
+
+        # Preenche o CNPJ (sem máscara — o JS do site aplica a máscara)
+        await page.fill('input[name="cnpj"]', cnpj)
+
+        console.print(
+            "[yellow]Resolva o hCaptcha no browser e clique em 'Consultar'.[/yellow]\n"
+            "[dim]Aguardando navegação para a página de resultado (máx. 2 min)...[/dim]"
+        )
+
+        form_url = page.url
+
+        # Detecta quando o usuário submete o formulário e navega para o resultado
+        try:
+            await page.wait_for_function(
+                f"() => window.location.href !== {repr(form_url)} && "
+                "!window.location.href.includes('Cnpjreva_Solicitacao')",
+                timeout=120_000,
+            )
+            await page.wait_for_load_state("networkidle", timeout=15_000)
+        except Exception:
+            console.print("[red]Tempo esgotado ou navegação não detectada.[/red]")
+            await browser.close()
+            return resultado
+
+        html = await page.content()
+        await browser.close()
+
+    resultado = _parse_rf_html(html)
+    return resultado
+
+
+def _parse_rf_html(html: str) -> dict:
+    """Extrai pares label→valor do Comprovante de Inscrição da Receita Federal."""
+    soup = BeautifulSoup(html, "html.parser")
+    result = {}
+
+    for table in soup.find_all("table"):
+        rows = table.find_all("tr")
+        for row in rows:
+            cells = row.find_all(["th", "td"])
+            # Tenta pares lado a lado
+            if len(cells) >= 2:
+                for i in range(0, len(cells) - 1, 2):
+                    label = cells[i].get_text(" ", strip=True).rstrip(":").strip()
+                    value = cells[i + 1].get_text(" ", strip=True)
+                    if label and value and len(label) < 80:
+                        result[label] = value
+            # Linha com label único e célula seguinte como valor
+            elif len(cells) == 1:
+                text = cells[0].get_text(" ", strip=True)
+                if ":" in text:
+                    label, _, value = text.partition(":")
+                    if label.strip() and value.strip():
+                        result[label.strip()] = value.strip()
+
+    # Listas de definição (dl/dt/dd)
+    for dl in soup.find_all("dl"):
+        for dt, dd in zip(dl.find_all("dt"), dl.find_all("dd")):
+            label = dt.get_text(strip=True).rstrip(":")
+            value = dd.get_text(strip=True)
+            if label and value:
+                result[label] = value
+
+    return result
+
+
+# ── 3. PGFN via Playwright (reCAPTCHA — browser headed) ───────────────────────
 
 async def fetch_pgfn(cnpj: str) -> dict:
     """
     Abre o browser, navega até listadevedores.pgfn.gov.br,
-    pesquisa o CNPJ e retorna o resultado como dict.
+    pesquisa o CNPJ e retorna o resultado.
     """
     resultado = {"status": None, "devedores": []}
 
@@ -60,7 +144,6 @@ async def fetch_pgfn(cnpj: str) -> dict:
             timeout=30_000,
         )
 
-        # Preenche o campo de busca
         input_sel = 'input[type="text"], input[placeholder*="CNPJ"], input[placeholder*="CPF"], input[name="ni"]'
         try:
             await page.wait_for_selector(input_sel, timeout=10_000)
@@ -70,33 +153,23 @@ async def fetch_pgfn(cnpj: str) -> dict:
             await browser.close()
             return resultado
 
-        # Clica em pesquisar
         btn_sel = 'button[type="submit"], button:has-text("Pesquisar"), button:has-text("Buscar")'
         try:
             await page.click(btn_sel)
         except Exception:
             await page.keyboard.press("Enter")
 
-        # Aguarda resposta da página
         await page.wait_for_timeout(4_000)
 
         body_text = await page.locator("body").inner_text()
         body_lower = body_text.lower()
 
-        # Verifica se há resultado de "sem dívida"
-        sem_divida_markers = [
-            "não há dados",
-            "nenhum devedor",
-            "não foram encontrados",
-            "não consta",
-            "sem débitos",
-        ]
-        if any(m in body_lower for m in sem_divida_markers):
+        sem_divida = ["não há dados", "nenhum devedor", "não foram encontrados", "não consta", "sem débitos"]
+        if any(m in body_lower for m in sem_divida):
             resultado["status"] = "REGULAR — Não consta na lista de devedores"
             await browser.close()
             return resultado
 
-        # Tenta extrair tabela de dívidas
         try:
             rows = await page.locator("table tbody tr").all()
             for row in rows:
@@ -119,7 +192,7 @@ async def fetch_pgfn(cnpj: str) -> dict:
     return resultado
 
 
-# ── 3. Notícias negativas via Google News RSS ─────────────────────────────────
+# ── 4. Notícias negativas via Google News RSS ─────────────────────────────────
 
 def fetch_news(nome: str) -> list[dict]:
     query = f'"{nome}" fraude OR falência OR investigação OR "recuperação judicial" OR irregularidade OR preso OR calote'
@@ -144,33 +217,28 @@ def fetch_news(nome: str) -> list[dict]:
 # ── Funções de exibição ────────────────────────────────────────────────────────
 
 def show_cadastral(d: dict):
-    console.print(Panel("[bold]DADOS CADASTRAIS[/bold]", style="cyan", expand=False))
+    console.print(Panel("[bold]DADOS CADASTRAIS — Brasil API / Receita Federal[/bold]", style="cyan", expand=False))
 
     sit = d.get("descricao_situacao_cadastral", "")
     sit_color = "green" if sit.upper() == "ATIVA" else "red"
-
+    fone = " / ".join(filter(None, [d.get("ddd_telefone_1", ""), d.get("ddd_telefone_2", "")]))
     endereco = " ".join(filter(None, [
         d.get("descricao_tipo_de_logradouro", ""),
         d.get("logradouro", ""),
         d.get("numero", ""),
         d.get("complemento", "") or "",
-        "—",
-        d.get("bairro", ""),
-        "—",
-        d.get("municipio", "") + "/" + d.get("uf", ""),
-        "CEP",
-        d.get("cep", ""),
+        "—", d.get("bairro", ""),
+        "—", d.get("municipio", "") + "/" + d.get("uf", ""),
+        "CEP", d.get("cep", ""),
     ]))
-
-    fone = " / ".join(filter(None, [d.get("ddd_telefone_1", ""), d.get("ddd_telefone_2", "")]))
 
     linhas = [
         ("Razão Social",       d.get("razao_social", "—")),
-        ("Nome Fantasia",      d.get("nome_fantasia", "—") or "—"),
+        ("Nome Fantasia",      d.get("nome_fantasia") or "—"),
         ("CNPJ",               fmt_cnpj(d.get("cnpj", ""))),
         ("Situação",           f"[{sit_color}]{sit}[/{sit_color}]"),
-        ("Data Situação",      d.get("data_situacao_cadastral", "—") or "—"),
-        ("Motivo",             d.get("descricao_motivo_situacao_cadastral", "—") or "—"),
+        ("Data Situação",      d.get("data_situacao_cadastral") or "—"),
+        ("Motivo",             d.get("descricao_motivo_situacao_cadastral") or "—"),
         ("Natureza Jurídica",  d.get("natureza_juridica", "—")),
         ("Porte",              d.get("porte", "—")),
         ("Capital Social",     fmt_brl(d.get("capital_social", 0))),
@@ -182,7 +250,7 @@ def show_cadastral(d: dict):
         ("CNAE Principal",     f"{d.get('cnae_fiscal', '')} — {d.get('cnae_fiscal_descricao', '—')}"),
         ("Endereço",           endereco),
         ("Telefone",           fone or "—"),
-        ("E-mail",             d.get("email", "—") or "—"),
+        ("E-mail",             d.get("email") or "—"),
     ]
 
     t = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
@@ -223,9 +291,22 @@ def show_socios(d: dict):
             s.get("nome_socio", "—"),
             s.get("qualificacao_socio", "—"),
             s.get("cnpj_cpf_do_socio", "—"),
-            s.get("faixa_etaria", "—") or "—",
-            s.get("data_entrada_sociedade", "—") or "—",
+            s.get("faixa_etaria") or "—",
+            s.get("data_entrada_sociedade") or "—",
         )
+    console.print(t)
+
+
+def show_receita_federal(dados_rf: dict):
+    console.print(Panel("[bold]COMPROVANTE DE INSCRIÇÃO — Receita Federal (oficial)[/bold]", style="cyan", expand=False))
+    if not dados_rf:
+        console.print("  [yellow]Sem dados extraídos.[/yellow]\n")
+        return
+    t = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
+    t.add_column(style="bold dim", width=40)
+    t.add_column()
+    for campo, valor in dados_rf.items():
+        t.add_row(campo[:60], valor[:100])
     console.print(t)
 
 
@@ -247,7 +328,6 @@ def show_pgfn(resultado: dict):
         console.print(t)
 
 
-
 def show_news(noticias: list, nome: str):
     console.print(Panel(f"[bold]NOTÍCIAS NEGATIVAS — {nome[:50].upper()}[/bold]", style="cyan", expand=False))
     if not noticias:
@@ -267,7 +347,7 @@ def show_news(noticias: list, nome: str):
 
 async def main():
     if len(sys.argv) < 2:
-        console.print("[bold red]Uso:[/bold red] python consulta_cnpj.py [CNPJ]")
+        console.print("[bold red]Uso:[/bold red] python consulta_cnpj.py <CNPJ>")
         console.print("  Ex: python consulta_cnpj.py 33.000.167/0001-01")
         sys.exit(1)
 
@@ -278,8 +358,8 @@ async def main():
 
     console.rule(f"[bold cyan]ANÁLISE DE CRÉDITO — {fmt_cnpj(cnpj)}[/bold cyan]")
 
-    # 1. Dados cadastrais + sócios
-    with console.status("[cyan]Consultando Receita Federal (Brasil API)...[/cyan]"):
+    # 1. Dados cadastrais via Brasil API
+    with console.status("[cyan]Consultando Brasil API (Receita Federal)...[/cyan]"):
         dados = fetch_cnpj(cnpj)
     nome = dados.get("razao_social") or cnpj
 
@@ -287,21 +367,35 @@ async def main():
     show_cnaes(dados)
     show_socios(dados)
 
-    # 2. PGFN
-    console.print("\n[yellow]Abrindo browser para consulta PGFN...[/yellow]")
+    # 2. Comprovante oficial — Receita Federal (hCaptcha)
+    console.print("\n[yellow]Abrindo browser para Receita Federal (hCaptcha)...[/yellow]")
+    try:
+        dados_rf = await fetch_receita_federal(cnpj)
+        show_receita_federal(dados_rf)
+    except Exception as exc:
+        console.print(Panel(
+            f"[red]Erro:[/red] {exc}\n"
+            "Consulte manualmente: https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/Cnpjreva_Solicitacao.asp",
+            title="[bold]Receita Federal[/bold]",
+            border_style="red",
+            expand=False,
+        ))
+
+    # 3. PGFN
+    console.print("\n[yellow]Abrindo browser para PGFN (reCAPTCHA)...[/yellow]")
     try:
         pgfn = await fetch_pgfn(cnpj)
         show_pgfn(pgfn)
     except Exception as exc:
         console.print(Panel(
             f"[red]Erro:[/red] {exc}\n"
-            "Consulte manualmente: [link]https://www.listadevedores.pgfn.gov.br/[/link]",
+            "Consulte manualmente: https://www.listadevedores.pgfn.gov.br/",
             title="[bold]PGFN[/bold]",
             border_style="red",
             expand=False,
         ))
 
-    # 3. Notícias
+    # 4. Notícias
     with console.status(f"[cyan]Buscando notícias sobre {nome[:40]}...[/cyan]"):
         noticias = fetch_news(nome)
     show_news(noticias, nome)

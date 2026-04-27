@@ -18,7 +18,11 @@
       "Bash(curl *)",
       "WebFetch(domain:www.listadevedores.pgfn.gov.br)",
       "Bash(python3 -m json.tool)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)\\)\")",
+      "WebFetch(domain:solucoes.receita.fazenda.gov.br)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \" import sys from html.parser import HTMLParser class TextExtractor\\(HTMLParser\\): def __init__\\(self\\): super\\(\\).__init__\\(\\) self.text = [] self.skip = False def handle_starttag\\(self, tag, attrs\\): if tag in \\('script','style'\\): self.skip = True def handle_endtag\\(self, tag\\): if tag in \\('script','style'\\): self.skip = False def handle_data\\(self, data\\): if not self.skip and data.strip\\(\\): self.text.append\\(data.strip\\(\\)\\) p = TextExtractor\\(\\) p.feed\\(sys.stdin.read\\(\\)\\) print\\('\\\\n'.join\\(p.text[:60]\\)\\) \")",
+      "Bash(python3 -c \" import sys from html.parser import HTMLParser class TextExtractor\\(HTMLParser\\): def __init__\\(self\\): super\\(\\).__init__\\(\\) self.text = [] self.skip = False def handle_starttag\\(self, tag, attrs\\): if tag in \\('script','style'\\): self.skip = True def handle_endtag\\(self, tag\\): if tag in \\('script','style'\\): self.skip = False def handle_data\\(self, data\\): if not self.skip and data.strip\\(\\): self.text.append\\(data.strip\\(\\)\\) p = TextExtractor\\(\\) p.feed\\(sys.stdin.read\\(\\)\\) print\\('\\\\n'.join\\(p.text[:80]\\)\\) \")"
     ]
   },
   "hooks": {
