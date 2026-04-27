@@ -10,7 +10,21 @@
       "PowerShell(Get-Command *)",
       "PowerShell(winget install *)",
       "PowerShell(gh *)",
-      "PowerShell(gh auth *)"
+      "PowerShell(gh auth *)",
+      "Bash(cd * && git add -A && *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"/c/Users/saulo/Desktop/Claude Code\" && git add -A && if ! git diff --staged --quiet; then git commit -m \"auto: sync via Claude Code\" && git push; fi"
+          }
+        ]
+      }
     ]
   }
 }
