@@ -11,7 +11,11 @@
       "PowerShell(winget install *)",
       "PowerShell(gh *)",
       "PowerShell(gh auth *)",
-      "Bash(cd * && git add -A && *)"
+      "Bash(cd * && git add -A && *)",
+      "Bash(python -m pip install -r analise-credito/requirements.txt -q)",
+      "Bash(python -m streamlit run analise-credito/app.py --server.headless true)",
+      "Bash(curl -s http://localhost:8502)",
+      "Bash(curl *)"
     ]
   },
   "hooks": {

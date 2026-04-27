@@ -147,10 +147,13 @@ df_refino = pd.DataFrame({
 # ── Header com cotação ao vivo ─────────────────────────────────────────────────
 cot = cotacao_petr4()
 if not cot.empty:
-    preco  = float(cot["Close"].iloc[-1])
-    var_d  = float((cot["Close"].iloc[-1] / cot["Close"].iloc[-2] - 1) * 100) if len(cot) > 1 else 0
-    max_52 = float(cot["High"].max())
-    min_52 = float(cot["Low"].min())
+    close  = cot["Close"].squeeze()
+    high   = cot["High"].squeeze()
+    low    = cot["Low"].squeeze()
+    preco  = float(close.iloc[-1])
+    var_d  = float((close.iloc[-1] / close.iloc[-2] - 1) * 100) if len(cot) > 1 else 0
+    max_52 = float(high.max())
+    min_52 = float(low.min())
 else:
     preco = var_d = max_52 = min_52 = 0
 
