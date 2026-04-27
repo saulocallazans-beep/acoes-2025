@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(git config *)",
+      "Bash(pip install *)",
+      "Bash(python -m pip install -r \"C:/Users/saulo/Desktop/Claude Code/acoes-2025/requirements.txt\" -q)",
+      "PowerShell(python --version)",
+      "Bash(gh auth *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(winget install *)",
+      "PowerShell(gh *)",
+      "PowerShell(gh auth *)"
+    ]
+  }
+}
