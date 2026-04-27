@@ -301,10 +301,7 @@ async def main():
             expand=False,
         ))
 
-    # 3. Serasa
-    show_serasa()
-
-    # 4. Notícias
+    # 3. Notícias
     with console.status(f"[cyan]Buscando notícias sobre {nome[:40]}...[/cyan]"):
         noticias = fetch_news(nome)
     show_news(noticias, nome)
