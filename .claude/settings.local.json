@@ -22,7 +22,17 @@
       "WebFetch(domain:solucoes.receita.fazenda.gov.br)",
       "Bash(python3 -c ' *)",
       "Bash(python3 -c \" import sys from html.parser import HTMLParser class TextExtractor\\(HTMLParser\\): def __init__\\(self\\): super\\(\\).__init__\\(\\) self.text = [] self.skip = False def handle_starttag\\(self, tag, attrs\\): if tag in \\('script','style'\\): self.skip = True def handle_endtag\\(self, tag\\): if tag in \\('script','style'\\): self.skip = False def handle_data\\(self, data\\): if not self.skip and data.strip\\(\\): self.text.append\\(data.strip\\(\\)\\) p = TextExtractor\\(\\) p.feed\\(sys.stdin.read\\(\\)\\) print\\('\\\\n'.join\\(p.text[:60]\\)\\) \")",
-      "Bash(python3 -c \" import sys from html.parser import HTMLParser class TextExtractor\\(HTMLParser\\): def __init__\\(self\\): super\\(\\).__init__\\(\\) self.text = [] self.skip = False def handle_starttag\\(self, tag, attrs\\): if tag in \\('script','style'\\): self.skip = True def handle_endtag\\(self, tag\\): if tag in \\('script','style'\\): self.skip = False def handle_data\\(self, data\\): if not self.skip and data.strip\\(\\): self.text.append\\(data.strip\\(\\)\\) p = TextExtractor\\(\\) p.feed\\(sys.stdin.read\\(\\)\\) print\\('\\\\n'.join\\(p.text[:80]\\)\\) \")"
+      "Bash(python3 -c \" import sys from html.parser import HTMLParser class TextExtractor\\(HTMLParser\\): def __init__\\(self\\): super\\(\\).__init__\\(\\) self.text = [] self.skip = False def handle_starttag\\(self, tag, attrs\\): if tag in \\('script','style'\\): self.skip = True def handle_endtag\\(self, tag\\): if tag in \\('script','style'\\): self.skip = False def handle_data\\(self, data\\): if not self.skip and data.strip\\(\\): self.text.append\\(data.strip\\(\\)\\) p = TextExtractor\\(\\) p.feed\\(sys.stdin.read\\(\\)\\) print\\('\\\\n'.join\\(p.text[:80]\\)\\) \")",
+      "Bash(netstat -ano)",
+      "Bash(streamlit run *)",
+      "Bash(python3 -m streamlit run \"C:\\\\Users\\\\saulo\\\\Desktop\\\\Claude Code\\\\analise-credito\\\\app_credito.py\" --server.port 8503 --server.headless true)",
+      "Bash(python3 -m pip install feedparser playwright beautifulsoup4)",
+      "Bash(python3 -m playwright install chromium)",
+      "Bash(taskkill /PID 8304 /F)",
+      "mcp__claude_ai_Gmail__search_threads",
+      "mcp__claude_ai_Gmail__label_thread",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   },
   "hooks": {
